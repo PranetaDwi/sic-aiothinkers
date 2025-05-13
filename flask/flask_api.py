@@ -31,6 +31,7 @@ vulnerable_location_collection = db["vulnerable_location"]
 
 fs = gridfs.GridFS(db)
 
+## Email Notification
 # Bersihkan string dari karakter non-ASCII
 def clean_text(text):
     if not text:
@@ -43,7 +44,7 @@ def send_email(device_id, lat, lon, email_receiver):
         msg = Message(
             subject="Peringatan Alat Aktif",
             sender=app.config['MAIL_USERNAME'],
-            recipients=[email_receiver],
+            recipients=email_receiver,
             body=f"""
 Sistem IoT aktif dari device ID: {clean_text(device_id)}
 
@@ -113,6 +114,7 @@ def post_vulnerable_location():
     if not device_id:
         return {'message': 'Device ID tidak boleh kosong'}, 400
 
+    # Simpan data ke collection
     vulnerable_location_collection.insert_one({
         'device_id': device_id,
         'lat': float(lat),
@@ -120,9 +122,19 @@ def post_vulnerable_location():
         'timestamp': datetime.datetime.utcnow()
     })
 
-    send_email(device_id, lat, lon, "marimo.zx@gmail.com")
+    # Ambil semua user yang memiliki device_id yang sama
+    users = list(users_collection.find({'device_id': device_id}))
+    email = [user['email'] for user in users if 'email' in user]
 
-    return {'message': 'Berhasil mengirim data', 'device_id': device_id, 'lon': lon, 'lat': lat}, 200
+    # Kirim email ke semua alamat yang ditemukan
+    send_email(device_id, lat, lon, email)
+
+    return {
+        'message': 'Berhasil mengirim data',
+        'device_id': device_id,
+        'lon': lon,
+        'lat': lat,
+    }, 200
 
 # Lokasi real-time
 @app.route('/post-location', methods=['POST'])
