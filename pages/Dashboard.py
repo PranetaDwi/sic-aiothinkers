@@ -178,6 +178,8 @@ if st.session_state.get("should_rerun"):
 
 def cardLocationDetailActivity():
 
+    st.write(st.session_state["selected_device_activation"])
+
     latest_data_by_activation = realtime_location_collection.find_one(
         {
             "device_id": st.session_state["device_id"],
@@ -305,17 +307,12 @@ def transcribe_audio(audio_data):
 def detailLocationAudioList():
     col1, col2 = st.columns([1, 1])
     with col1:
-        pipeline = [
-            {"$match": {
-                "device_id": st.session_state["device_id"],
-                "activation_id": st.session_state["selected_device_activation"]
-            }},
-            {"$sort": {"timestamp": 1}},
-            {"$group": {"_id": "$activation_id", "oldest": {"$first": "$$ROOT"}}},
-            {"$replaceRoot": {"newRoot": "$oldest"}}
-        ]
+        query = {
+            "device_id": st.session_state["device_id"],
+            "activation_id": st.session_state["selected_device_activation"]
+        }
 
-        results = list(realtime_location_collection.aggregate(pipeline))
+        results = realtime_location_collection.find(query, sort=[("timestamp", 1)])
 
         st.markdown("<h4 style='font-family: Inter, sans-serif;margin-top:10px'>Location List</h4>", unsafe_allow_html=True)
 
@@ -349,17 +346,17 @@ def detailLocationAudioList():
                     st.form_submit_button("Maps", on_click=lambda d_id=activation_id: set_session(d_id))
 
     with col2:
+        audios = list(fs.find({"activation_id": st.session_state["selected_device_activation"]}).sort("timestamp", 1))
 
         if "transkript" not in st.session_state:
             st.session_state.transkript = "no"
-
         # Header
         st.markdown("<h4 style='font-family: Inter, sans-serif;'>Record List</h4>", unsafe_allow_html=True)
 
         # Kontainer scrollable
         with st.container():
             # Ambil data audio berdasarkan activation_id, urutkan berdasarkan timestamp
-            audios = list(fs.find({"activation_id": activation_id}).sort("timestamp", 1))
+            
 
             for i, audio in enumerate(audios):
                 audio_data = audio.read()
